@@ -6,32 +6,45 @@ function addCustomButtonsToToolbar(actionsToolbar) {
 
     // 1. Create "Change Language" button
     const changeLangButton = document.createElement('button');
-    changeLangButton.innerHTML = '🌐&nbsp;Lang'; // Emoji and text
+    changeLangButton.innerHTML = `<img src="${chrome.runtime.getURL('languages.png')}" alt="Language">&nbsp;Lang`; // Image icon and text
     changeLangButton.title = 'Change Language (Not Implemented)';
     changeLangButton.className = 'copilot-enhancer-button copilot-enhancer-button-lang';
     // Apply GitHub's base button classes for styling
     changeLangButton.classList.add('prc-Button-ButtonBase-c50BI', 'prc-Button-IconButton-szpyj');
     changeLangButton.dataset.size = "medium";
     changeLangButton.dataset.variant = "invisible";
-    changeLangButton.style.padding = '0 8px'; // Adjust padding to match other icon buttons
-    changeLangButton.style.marginRight = '4px'; // Spacing
 
-    changeLangButton.onclick = () => {
-        alert('Change Language functionality is not yet implemented.');
-        // TODO: Implement language selection logic
+    changeLangButton.onclick = (event) => {
+        // Prevent the click from propagating to document body if we add a global click listener later
+        event.stopPropagation();
+        const existingMenu = actionsToolbar.querySelector('.copilot-language-menu');
+        if (existingMenu) {
+            existingMenu.remove();
+            return;
+        }
+
+        chrome.runtime.sendMessage({ action: 'getLanguages' }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.error('Error getting languages:', chrome.runtime.lastError.message);
+                alert('Could not load languages.');
+                return;
+            }
+            if (response && response.languages) {
+                const messageTurnElement = actionsToolbar.closest('div[data-testid^="chat-message-content-turn-"]');
+                showLanguageMenu(response.languages, changeLangButton, messageTurnElement, actionsToolbar);
+            }
+        });
     };
 
     // 2. Create "Speak aloud" button
     const speakButton = document.createElement('button');
-    speakButton.innerHTML = '🗣️&nbsp;Speak'; // Emoji and text
+    speakButton.innerHTML = `<img src="${chrome.runtime.getURL('volume-2.png')}" alt="Speak">&nbsp;Speak`; // Image icon and text
     speakButton.title = 'Speak Aloud';
     speakButton.className = 'copilot-enhancer-button copilot-enhancer-button-speak';
     // Apply GitHub's base button classes
     speakButton.classList.add('prc-Button-ButtonBase-c50BI', 'prc-Button-IconButton-szpyj');
     speakButton.dataset.size = "medium";
     speakButton.dataset.variant = "invisible";
-    speakButton.style.padding = '0 8px';
-    speakButton.style.marginRight = '4px';
 
     speakButton.onclick = () => {
         let textToSpeak = '';
@@ -95,6 +108,110 @@ function addCustomButtonsToToolbar(actionsToolbar) {
     }
 }
 
+function showLanguageMenu(languages, button, messageTurnElement, actionsToolbar) {
+    // Remove any existing menu first
+    const oldMenu = actionsToolbar.querySelector('.copilot-language-menu');
+    if (oldMenu) {
+        oldMenu.remove();
+    }
+
+    const menu = document.createElement('div');
+    menu.className = 'copilot-language-menu';
+    // Basic styling - this should be improved in styles.css
+    menu.style.position = 'absolute';
+    menu.style.backgroundColor = 'white';
+    menu.style.border = '1px solid #ccc';
+    menu.style.padding = '5px';
+    menu.style.zIndex = '1000';
+    menu.style.maxHeight = '200px';
+    menu.style.overflowY = 'auto';
+    // Position it near the button
+    menu.style.top = (button.offsetTop + button.offsetHeight) + 'px';
+    menu.style.left = button.offsetLeft + 'px';
+
+
+    Object.entries(languages).forEach(([code, name]) => {
+        const langOption = document.createElement('div');
+        langOption.textContent = name;
+        langOption.style.padding = '5px';
+        langOption.style.cursor = 'pointer';
+        langOption.onmouseover = () => langOption.style.backgroundColor = '#f0f0f0';
+        langOption.onmouseout = () => langOption.style.backgroundColor = 'white';
+        langOption.dataset.langCode = code;
+
+        langOption.onclick = (event) => {
+            event.stopPropagation(); // Prevent menu from closing immediately if it's part of actionsToolbar
+            const targetLangCode = langOption.dataset.langCode;
+            let originalText = '';
+
+            if (messageTurnElement) {
+                const markdownBody = messageTurnElement.querySelector('.markdown-body');
+                if (markdownBody) {
+                    originalText = markdownBody.innerText;
+                } else {
+                    const contentContainer = messageTurnElement.querySelector('div[class*="ChatMessageContent-module__container"]');
+                    if (contentContainer) {
+                        originalText = contentContainer.innerText;
+                        const actionsText = actionsToolbar.innerText;
+                        if (originalText.includes(actionsText)) {
+                            originalText = originalText.replace(actionsText, '').trim();
+                        }
+                    }
+                }
+            }
+
+            if (originalText && originalText.trim()) {
+                chrome.runtime.sendMessage({
+                    action: 'translateText',
+                    data: { text: originalText.trim(), targetLang: targetLangCode }
+                }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.error('Error translating text:', chrome.runtime.lastError.message);
+                        alert('Could not translate text.');
+                        return;
+                    }
+                    if (response && response.translatedText) {
+                        const markdownBody = messageTurnElement.querySelector('.markdown-body');
+                        if (markdownBody) {
+                            markdownBody.innerText = response.translatedText;
+                        } else {
+                             const contentContainer = messageTurnElement.querySelector('div[class*="ChatMessageContent-module__container"]');
+                             if(contentContainer){
+                                // Attempt to preserve some structure if possible, though innerText replacement is simpler
+                                // For now, just replace the most likely content holder
+                                contentContainer.innerText = response.translatedText;
+                             }
+                        }
+                    }
+                });
+            } else {
+                alert('Copilot Enhancer: Could not find text to translate.');
+            }
+            menu.remove(); // Close menu after selection
+        };
+        menu.appendChild(langOption);
+    });
+
+    // Add menu to the actions toolbar (or a more suitable parent if actionsToolbar clips content)
+    // Using button.offsetParent or a specific container might be better for positioning.
+    // For now, let's append to actionsToolbar and rely on absolute positioning.
+    actionsToolbar.appendChild(menu);
+
+
+    // Optional: Close menu when clicking outside
+    // This can be tricky with event propagation.
+    // A simple version:
+    const closeMenuHandler = (event) => {
+        if (!menu.contains(event.target) && event.target !== button) {
+            menu.remove();
+            document.body.removeEventListener('click', closeMenuHandler, true);
+        }
+    };
+    // Use capture phase to catch clicks early
+    document.body.addEventListener('click', closeMenuHandler, true);
+
+}
+
 // Function to find and process all relevant toolbars on the page
 function processPageToolbars() {
     // Use a class selector that is likely to be stable for the actions toolbar
@@ -141,3 +258,4 @@ observer.observe(document.body, {
 processPageToolbars();
 
 console.log('GitHub Copilot Chat Enhancer content script loaded.');
+

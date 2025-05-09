@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "GitHub Copilot Chat Enhancer",
+  "version": "1.0.0",
+  "description": "Adds 'Change Language' and 'Speak Aloud' buttons to GitHub Copilot chat responses.",
+  "icons": {
+    "16": "favicon-16x16.png",
+    "32": "favicon-32x32.png",
+    "48": "android-chrome-192x192.png",
+    "128": "android-chrome-192x192.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/copilot/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "languages.png",
+        "volume-2.png",
+        "favicon-16x16.png",
+        "favicon-32x32.png",
+        "android-chrome-192x192.png",
+        "android-chrome-512x512.png",
+        "apple-touch-icon.png",
+        "favicon.ico"
+      ],
+      "matches": ["https://github.com/copilot/*"]
+    }
+  ]
+}
+
