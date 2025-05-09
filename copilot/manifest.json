@@ -17,6 +17,11 @@
     "activeTab",
     "scripting"
   ],
+  "host_permissions": [
+    "https://unpkg.com/",
+    "https://*.google.com/",
+    "https://friday-backend.vercel.app/"
+  ],
   "content_scripts": [
     {
       "matches": ["https://github.com/copilot/*"],
@@ -30,6 +35,8 @@
       "resources": [
         "languages.png",
         "volume-2.png",
+        "pause.png",
+        "loader.png",
         "favicon-16x16.png",
         "favicon-32x32.png",
         "android-chrome-192x192.png",

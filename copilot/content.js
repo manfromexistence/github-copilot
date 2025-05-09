@@ -1,3 +1,121 @@
+let currentAudio = null; // Holds the single Audio object
+let currentPlayingButton = null; // Reference to the button whose audio is playing/loading/paused
+let ttsCache = {}; // Cache for audio blobs: { text: blob }
+
+// Helper function to update the speak button's icon and state
+function updateSpeakButtonIcon(button, state) {
+    let iconFile = 'volume-2.png';
+    let altText = 'Speak';
+    // Ensure button is an HTMLElement
+    if (!(button instanceof HTMLElement)) {
+        console.error('Invalid button element passed to updateSpeakButtonIcon', button);
+        return;
+    }
+    button.classList.remove('copilot-enhancer-loader-spinning');
+
+    switch (state) {
+        case 'loading':
+            iconFile = 'loader.png';
+            altText = 'Loading TTS';
+            button.classList.add('copilot-enhancer-loader-spinning');
+            break;
+        case 'playing':
+            iconFile = 'pause.png';
+            altText = 'Pause TTS';
+            break;
+        case 'paused':
+            iconFile = 'play.png';
+            altText = 'Play TTS';
+            break;
+        case 'error': // same as idle for now
+            iconFile = 'volume-2.png';
+            altText = 'Speak (error)';
+            break;
+        case 'idle':
+        default:
+            iconFile = 'volume-2.png';
+            altText = 'Speak';
+            break;
+    }
+    button.innerHTML = `<img src="${chrome.runtime.getURL(iconFile)}" alt="${altText}">&nbsp;Speak`;
+}
+
+// Helper function to handle TTS blob and audio playback
+function handleTTSBlob(blob, button, textKey) {
+    if (currentAudio) { // Stop and clear any existing audio
+        currentAudio.pause();
+        if (currentAudio.src && currentAudio.src.startsWith('blob:')) {
+            URL.revokeObjectURL(currentAudio.src);
+        }
+    }
+
+    currentAudio = new Audio();
+    currentAudio.src = URL.createObjectURL(blob);
+
+    currentAudio.onplay = () => {
+        if (currentPlayingButton === button) {
+            button.dataset.ttsState = 'playing';
+            updateSpeakButtonIcon(button, 'playing');
+        }
+    };
+
+    currentAudio.onpause = () => {
+        // Only set to paused if it was genuinely paused by user or end of audio,
+        // not if it was programmatically paused before playing something else or due to an error.
+        if (currentPlayingButton === button && currentAudio && !currentAudio.ended && button.dataset.ttsState === 'playing') {
+            button.dataset.ttsState = 'paused';
+            updateSpeakButtonIcon(button, 'paused');
+        }
+    };
+
+    currentAudio.onended = () => {
+        if (currentPlayingButton === button) {
+            button.dataset.ttsState = 'idle';
+            updateSpeakButtonIcon(button, 'idle');
+            if (currentAudio && currentAudio.src && currentAudio.src.startsWith('blob:')) {
+                URL.revokeObjectURL(currentAudio.src);
+            }
+            currentAudio = null;
+            currentPlayingButton = null;
+        }
+    };
+
+    currentAudio.onerror = () => {
+        if (currentPlayingButton === button) {
+            console.error('Copilot Enhancer: Error playing audio.');
+            button.dataset.ttsState = 'idle';
+            updateSpeakButtonIcon(button, 'error');
+            alert('Copilot Enhancer: Error playing audio.');
+            if (currentAudio && currentAudio.src && currentAudio.src.startsWith('blob:')) {
+                URL.revokeObjectURL(currentAudio.src);
+            }
+            currentAudio = null;
+            currentPlayingButton = null;
+        }
+    };
+
+    currentAudio.play().then(() => {
+        // Play started
+        if (currentPlayingButton === button) { // Ensure it's still the target
+             button.dataset.ttsState = 'playing'; // onplay will also set this
+             updateSpeakButtonIcon(button, 'playing');
+        }
+    }).catch(e => {
+        if (currentPlayingButton === button) {
+            console.error('Copilot Enhancer: Could not start audio playback:', e);
+            button.dataset.ttsState = 'idle';
+            updateSpeakButtonIcon(button, 'error');
+            alert('Copilot Enhancer: Could not start audio playback.');
+            if (currentAudio && currentAudio.src && currentAudio.src.startsWith('blob:')) {
+                URL.revokeObjectURL(currentAudio.src);
+            }
+            currentAudio = null;
+            currentPlayingButton = null;
+        }
+    });
+}
+
+
 function addCustomButtonsToToolbar(actionsToolbar) {
     // Prevent adding buttons multiple times to the same toolbar
     if (actionsToolbar.querySelector('.copilot-enhancer-button-speak')) {
@@ -6,16 +124,14 @@ function addCustomButtonsToToolbar(actionsToolbar) {
 
     // 1. Create "Change Language" button
     const changeLangButton = document.createElement('button');
-    changeLangButton.innerHTML = `<img src="${chrome.runtime.getURL('languages.png')}" alt="Language">&nbsp;Lang`; // Image icon and text
-    changeLangButton.title = 'Change Language (Not Implemented)';
+    changeLangButton.innerHTML = `<img src="${chrome.runtime.getURL('languages.png')}" alt="Language">&nbsp;Lang`;
+    changeLangButton.title = 'Change Language';
     changeLangButton.className = 'copilot-enhancer-button copilot-enhancer-button-lang';
-    // Apply GitHub's base button classes for styling
     changeLangButton.classList.add('prc-Button-ButtonBase-c50BI', 'prc-Button-IconButton-szpyj');
     changeLangButton.dataset.size = "medium";
     changeLangButton.dataset.variant = "invisible";
 
     changeLangButton.onclick = (event) => {
-        // Prevent the click from propagating to document body if we add a global click listener later
         event.stopPropagation();
         const existingMenu = actionsToolbar.querySelector('.copilot-language-menu');
         if (existingMenu) {
@@ -38,48 +154,110 @@ function addCustomButtonsToToolbar(actionsToolbar) {
 
     // 2. Create "Speak aloud" button
     const speakButton = document.createElement('button');
-    speakButton.innerHTML = `<img src="${chrome.runtime.getURL('volume-2.png')}" alt="Speak">&nbsp;Speak`; // Image icon and text
+    speakButton.innerHTML = `<img src="${chrome.runtime.getURL('volume-2.png')}" alt="Speak">&nbsp;Speak`; // Initial icon
     speakButton.title = 'Speak Aloud';
     speakButton.className = 'copilot-enhancer-button copilot-enhancer-button-speak';
-    // Apply GitHub's base button classes
     speakButton.classList.add('prc-Button-ButtonBase-c50BI', 'prc-Button-IconButton-szpyj');
     speakButton.dataset.size = "medium";
     speakButton.dataset.variant = "invisible";
+    speakButton.dataset.ttsState = 'idle'; // Initial state
 
     speakButton.onclick = () => {
+        const thisButton = speakButton; // Closure for the current button
         let textToSpeak = '';
-        // Find the parent element of the entire message turn
         const messageTurnElement = actionsToolbar.closest('div[data-testid^="chat-message-content-turn-"]');
 
         if (messageTurnElement) {
-            // Find the element containing the rendered markdown response
             const markdownBody = messageTurnElement.querySelector('.markdown-body');
             if (markdownBody) {
                 textToSpeak = markdownBody.innerText;
             } else {
-                // Fallback if '.markdown-body' is not found (structure might vary)
                 const contentContainer = messageTurnElement.querySelector('div[class*="ChatMessageContent-module__container"]');
                 if (contentContainer) {
                     textToSpeak = contentContainer.innerText;
-                    // Basic cleanup: remove text from the actions bar itself if it got included
                     const actionsText = actionsToolbar.innerText;
                     if (textToSpeak.includes(actionsText)) {
                         textToSpeak = textToSpeak.replace(actionsText, '').trim();
                     }
                 }
-                console.warn('Copilot Enhancer: ".markdown-body" not found, used fallback selector.');
             }
         }
 
-        if (textToSpeak && textToSpeak.trim()) {
-            const utterance = new SpeechSynthesisUtterance(textToSpeak.trim());
-            // You can add language selection logic here if "Change Language" is implemented
-            // utterance.lang = 'es-ES'; // Example for Spanish
-            speechSynthesis.cancel(); // Stop any currently playing speech
-            speechSynthesis.speak(utterance);
-        } else {
+        if (!textToSpeak || !textToSpeak.trim()) {
             alert('Copilot Enhancer: Could not find text to speak for this message.');
             console.warn('Copilot Enhancer: No text found. Message Turn Element:', messageTurnElement);
+            return;
+        }
+        textToSpeak = textToSpeak.trim();
+
+        // If another button's audio is playing/paused, stop it and reset that button.
+        if (currentPlayingButton && currentPlayingButton !== thisButton) {
+            if (currentAudio) {
+                currentAudio.pause(); // This will trigger onended or onpause for the old button if managed correctly
+                if (currentAudio.src && currentAudio.src.startsWith('blob:')) {
+                    URL.revokeObjectURL(currentAudio.src);
+                }
+            }
+            currentPlayingButton.dataset.ttsState = 'idle';
+            updateSpeakButtonIcon(currentPlayingButton, 'idle');
+            currentAudio = null; // Ensure currentAudio is cleared before being reassigned
+        }
+        
+        currentPlayingButton = thisButton; // Set current button
+        const currentState = thisButton.dataset.ttsState;
+
+        if (currentState === 'loading') {
+            // Optionally, implement cancellation here if desired
+            console.log('Copilot Enhancer: TTS is already loading.');
+            return;
+        }
+
+        if (currentState === 'playing') {
+            if (currentAudio) currentAudio.pause(); // onpause handler updates icon and state
+        } else if (currentState === 'paused') {
+            if (currentAudio) currentAudio.play().catch(e => {
+                 console.error('Copilot Enhancer: Error resuming playback:', e);
+                 thisButton.dataset.ttsState = 'idle';
+                 updateSpeakButtonIcon(thisButton, 'error');
+                 alert('Copilot Enhancer: Could not resume audio playback.');
+                 currentPlayingButton = null; // Reset
+            }); // onplay handler updates icon and state
+        } else { // State is 'idle' or 'error', fetch/play new
+            thisButton.dataset.ttsState = 'loading';
+            updateSpeakButtonIcon(thisButton, 'loading');
+
+            if (ttsCache[textToSpeak]) {
+                console.log('Copilot Enhancer: Playing from cache');
+                handleTTSBlob(ttsCache[textToSpeak], thisButton, textToSpeak);
+            } else {
+                console.log('Copilot Enhancer: Fetching TTS from background');
+                chrome.runtime.sendMessage({ action: 'fetchTTS', data: { text: textToSpeak } }, (response) => {
+                    // Check if this button is still the one we care about
+                    if (currentPlayingButton !== thisButton) {
+                        // If it was loading and then reset by another action or this is a stale callback
+                        if (thisButton.dataset.ttsState === 'loading') {
+                           thisButton.dataset.ttsState = 'idle';
+                           updateSpeakButtonIcon(thisButton, 'idle');
+                        }
+                        console.log('Copilot Enhancer: TTS response for a button that is no longer active.');
+                        return;
+                    }
+
+                    if (chrome.runtime.lastError || !response || !response.blob) {
+                        console.error('Copilot Enhancer: Error fetching TTS -', chrome.runtime.lastError ? chrome.runtime.lastError.message : 'No response or blob');
+                        thisButton.dataset.ttsState = 'idle';
+                        updateSpeakButtonIcon(thisButton, 'error');
+                        alert('Copilot Enhancer: Could not fetch audio for TTS.');
+                        currentPlayingButton = null; // Clear as this attempt failed
+                    } else {
+                        console.log('Copilot Enhancer: TTS fetched, playing.');
+                        // The backend sends the blob directly in the response.
+                        // If it were base64, we'd convert: const blob = new Blob([Uint8Array.from(atob(response.audioContent), c => c.charCodeAt(0))], { type: 'audio/mpeg' });
+                        ttsCache[textToSpeak] = response.blob;
+                        handleTTSBlob(response.blob, thisButton, textToSpeak);
+                    }
+                });
+            }
         }
     };
 
@@ -116,31 +294,19 @@ function showLanguageMenu(languages, button, messageTurnElement, actionsToolbar)
     }
 
     const menu = document.createElement('div');
-    menu.className = 'copilot-language-menu';
-    // Basic styling - this should be improved in styles.css
-    menu.style.position = 'absolute';
-    menu.style.backgroundColor = 'white';
-    menu.style.border = '1px solid #ccc';
-    menu.style.padding = '5px';
-    menu.style.zIndex = '1000';
-    menu.style.maxHeight = '200px';
-    menu.style.overflowY = 'auto';
-    // Position it near the button
+    menu.className = 'copilot-language-menu'; // Assign class
+    // Dynamic positioning based on the button
     menu.style.top = (button.offsetTop + button.offsetHeight) + 'px';
     menu.style.left = button.offsetLeft + 'px';
-
 
     Object.entries(languages).forEach(([code, name]) => {
         const langOption = document.createElement('div');
         langOption.textContent = name;
-        langOption.style.padding = '5px';
-        langOption.style.cursor = 'pointer';
-        langOption.onmouseover = () => langOption.style.backgroundColor = '#f0f0f0';
-        langOption.onmouseout = () => langOption.style.backgroundColor = 'white';
+        langOption.className = 'copilot-language-menu-option'; // Assign class
         langOption.dataset.langCode = code;
 
         langOption.onclick = (event) => {
-            event.stopPropagation(); // Prevent menu from closing immediately if it's part of actionsToolbar
+            event.stopPropagation(); 
             const targetLangCode = langOption.dataset.langCode;
             let originalText = '';
 
@@ -257,5 +423,5 @@ observer.observe(document.body, {
 // Initial run in case content is already present when the script loads
 processPageToolbars();
 
-console.log('GitHub Copilot Chat Enhancer content script loaded.');
+console.log('GitHub Copilot Chat Enhancer content script loaded and TTS logic updated.');
 

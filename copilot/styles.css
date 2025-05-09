@@ -14,6 +14,16 @@
     margin-right: 4px; /* Space between icon and text */
 }
 
+/* Spinning animation for loader icon */
+@keyframes copilot-enhancer-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.copilot-enhancer-loader-spinning img {
+    animation: copilot-enhancer-spin 1s linear infinite;
+}
+
 /* Specific styling if you want to differentiate them further */
 /* .copilot-enhancer-button-lang {
     color: blue; 
@@ -22,4 +32,25 @@
 /* .copilot-enhancer-button-speak {
     color: green; 
 } */
+
+/* Styles for the language selection menu */
+.copilot-language-menu {
+    position: absolute;
+    background-color: white;
+    border: 1px solid #ccc;
+    padding: 5px;
+    z-index: 1000;
+    max-height: 200px;
+    overflow-y: auto;
+    /* Positioning will be set by JS if it depends on button location */
+}
+
+.copilot-language-menu-option {
+    padding: 5px;
+    cursor: pointer;
+}
+
+.copilot-language-menu-option:hover {
+    background-color: #f0f0f0;
+}
 
