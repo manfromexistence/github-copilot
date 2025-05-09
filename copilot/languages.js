@@ -1,138 +1,92 @@
-/*
-* @Author: shikar
-* @Date:   2017-02-05 15:29:19
-* @Last Modified by:   shikar
-* @Last Modified time: 2017-02-06 13:40:25
-*/
-'use strict'
-const langs = {
-  auto: 'Automatic',
-  af: 'Afrikaans',
-  sq: 'Albanian',
-  ar: 'Arabic',
-  hy: 'Armenian',
-  az: 'Azerbaijani',
-  eu: 'Basque',
-  be: 'Belarusian',
-  bn: 'Bengali',
-  bs: 'Bosnian',
-  bg: 'Bulgarian',
-  ca: 'Catalan',
-  ceb: 'Cebuano',
-  ny: 'Chichewa',
-  'zh-cn': 'Chinese Simplified',
-  'zh-tw': 'Chinese Traditional',
-  co: 'Corsican',
-  hr: 'Croatian',
-  cs: 'Czech',
-  da: 'Danish',
-  nl: 'Dutch',
-  en: 'English',
-  eo: 'Esperanto',
-  et: 'Estonian',
-  tl: 'Filipino',
-  fi: 'Finnish',
-  fr: 'French',
-  fy: 'Frisian',
-  gl: 'Galician',
-  ka: 'Georgian',
-  de: 'German',
-  el: 'Greek',
-  gu: 'Gujarati',
-  ht: 'Haitian Creole',
-  ha: 'Hausa',
-  haw: 'Hawaiian',
-  iw: 'Hebrew',
-  hi: 'Hindi',
-  hmn: 'Hmong',
-  hu: 'Hungarian',
-  is: 'Icelandic',
-  ig: 'Igbo',
-  id: 'Indonesian',
-  ga: 'Irish',
-  it: 'Italian',
-  ja: 'Japanese',
-  jw: 'Javanese',
-  kn: 'Kannada',
-  kk: 'Kazakh',
-  km: 'Khmer',
-  ko: 'Korean',
-  ku: 'Kurdish (Kurmanji)',
-  ky: 'Kyrgyz',
-  lo: 'Lao',
-  la: 'Latin',
-  lv: 'Latvian',
-  lt: 'Lithuanian',
-  lb: 'Luxembourgish',
-  mk: 'Macedonian',
-  mg: 'Malagasy',
-  ms: 'Malay',
-  ml: 'Malayalam',
-  mt: 'Maltese',
-  mi: 'Maori',
-  mr: 'Marathi',
-  mn: 'Mongolian',
-  my: 'Myanmar (Burmese)',
-  ne: 'Nepali',
-  no: 'Norwegian',
-  ps: 'Pashto',
-  fa: 'Persian',
-  pl: 'Polish',
-  pt: 'Portuguese',
-  ma: 'Punjabi',
-  ro: 'Romanian',
-  ru: 'Russian',
-  sm: 'Samoan',
-  gd: 'Scots Gaelic',
-  sr: 'Serbian',
-  st: 'Sesotho',
-  sn: 'Shona',
-  sd: 'Sindhi',
-  si: 'Sinhala',
-  sk: 'Slovak',
-  sl: 'Slovenian',
-  so: 'Somali',
-  es: 'Spanish',
-  su: 'Sudanese',
-  sw: 'Swahili',
-  sv: 'Swedish',
-  tg: 'Tajik',
-  ta: 'Tamil',
-  te: 'Telugu',
-  th: 'Thai',
-  tr: 'Turkish',
-  uk: 'Ukrainian',
-  ur: 'Urdu',
-  uz: 'Uzbek',
-  vi: 'Vietnamese',
-  cy: 'Welsh',
-  xh: 'Xhosa',
-  yi: 'Yiddish',
-  yo: 'Yoruba',
-  zu: 'Zulu'
-}
+// /workspaces/github-copilot/copilot/languages.js
 
-function getCode(desiredLang) {
+// Source: /workspaces/github-copilot/translate/LANGUAGES.md
+// This list should be kept in sync with LANGUAGES.md
+export const actualAvailableLanguages = [
+  'afrikaans', 'albanian', 'amharic', 'arabic', 'armenian', 'assamese', 'aymara', 'azerbaijani', 
+  'bambara', 'basque', 'belarusian', 'bengali', 'bhojpuri', 'bosnian', 'bulgarian', 'catalan', 
+  'cebuano', 'chichewa', 'chinese (simplified)', 'chinese (traditional)', 'corsican', 'croatian', 
+  'czech', 'danish', 'dhivehi', 'dogri', 'dutch', 'english', 'esperanto', 'estonian', 'ewe', 
+  'filipino', 'finnish', 'french', 'frisian', 'galician', 'georgian', 'german', 'greek', 'guarani', 
+  'gujarati', 'haitian creole', 'hausa', 'hawaiian', 'hebrew', 'hindi', 'hmong', 'hungarian', 
+  'icelandic', 'igbo', 'ilocano', 'indonesian', 'irish', 'italian', 'japanese', 'javanese', 
+  'kannada', 'kazakh', 'khmer', 'kinyarwanda', 'konkani', 'korean', 'krio', 'kurdish (kurmanji)', 
+  'kurdish (sorani)', 'kyrgyz', 'lao', 'latin', 'latvian', 'lingala', 'lithuanian', 'luganda', 
+  'luxembourgish', 'macedonian', 'maithili', 'malagasy', 'malay', 'malayalam', 'maltese', 'maori', 
+  'marathi', 'meiteilon (manipuri)', 'mizo', 'mongolian', 'myanmar', 'nepali', 'norwegian', 
+  'odia (oriya)', 'oromo', 'pashto', 'persian', 'polish', 'portuguese', 'punjabi', 'quechua', 
+  'romanian', 'russian', 'samoan', 'sanskrit', 'scots gaelic', 'sepedi', 'serbian', 'sesotho', 
+  'shona', 'sindhi', 'sinhala', 'slovak', 'slovenian', 'somali', 'spanish', 'sundanese', 
+  'swahili', 'swedish', 'tajik', 'tamil', 'tatar', 'telugu', 'thai', 'tigrinya', 'tsonga', 
+  'turkish', 'turkmen', 'twi', 'ukrainian', 'urdu', 'uyghur', 'uzbek', 'vietnamese', 'welsh', 
+  'xhosa', 'yiddish', 'yoruba', 'zulu'
+];
+
+// This map is crucial and needs to be accurate for the translation API.
+// It maps the lowercase language name (from actualAvailableLanguages) to its code.
+// Based on translate-depricated/languages.js and extended for LANGUAGES.md.
+// Please verify these codes, especially for newly added languages.
+const nameToCodeMap = {
+  'afrikaans': 'af', 'albanian': 'sq', 'amharic': 'am', 'arabic': 'ar', 
+  'armenian': 'hy', 'assamese': 'as', 'aymara': 'ay', 'azerbaijani': 'az',
+  'bambara': 'bm', 'basque': 'eu', 'belarusian': 'be', 'bengali': 'bn',
+  'bhojpuri': 'bho', 'bosnian': 'bs', 'bulgarian': 'bg', 'catalan': 'ca',
+  'cebuano': 'ceb', 'chichewa': 'ny', 'chinese (simplified)': 'zh-cn',
+  'chinese (traditional)': 'zh-tw', 'corsican': 'co', 'croatian': 'hr',
+  'czech': 'cs', 'danish': 'da', 'dhivehi': 'dv', 'dogri': 'doi',
+  'dutch': 'nl', 'english': 'en', 'esperanto': 'eo', 'estonian': 'et',
+  'ewe': 'ee', 'filipino': 'tl', 'finnish': 'fi', 'french': 'fr',
+  'frisian': 'fy', 'galician': 'gl', 'georgian': 'ka', 'german': 'de',
+  'greek': 'el', 'guarani': 'gn', 'gujarati': 'gu', 'haitian creole': 'ht',
+  'hausa': 'ha', 'hawaiian': 'haw', 'hebrew': 'iw', 'hindi': 'hi',
+  'hmong': 'hmn', 'hungarian': 'hu', 'icelandic': 'is', 'igbo': 'ig',
+  'ilocano': 'ilo', 'indonesian': 'id', 'irish': 'ga', 'italian': 'it',
+  'japanese': 'ja', 'javanese': 'jw', 'kannada': 'kn', 'kazakh': 'kk',
+  'khmer': 'km', 'kinyarwanda': 'rw', 'konkani': 'gom', 'korean': 'ko',
+  'krio': 'kri', 'kurdish (kurmanji)': 'ku', 'kurdish (sorani)': 'ckb',
+  'kyrgyz': 'ky', 'lao': 'lo', 'latin': 'la', 'latvian': 'lv',
+  'lingala': 'ln', 'lithuanian': 'lt', 'luganda': 'lg', 'luxembourgish': 'lb',
+  'macedonian': 'mk', 'maithili': 'mai', 'malagasy': 'mg', 'malay': 'ms',
+  'malayalam': 'ml', 'maltese': 'mt', 'maori': 'mi', 'marathi': 'mr',
+  'meiteilon (manipuri)': 'mni-mtei', // Or 'mni'. Verify with API.
+  'mizo': 'lus', 'mongolian': 'mn', 'myanmar': 'my',
+  'nepali': 'ne', 'norwegian': 'no', 'odia (oriya)': 'or', 'oromo': 'om',
+  'pashto': 'ps', 'persian': 'fa', 'polish': 'pl', 'portuguese': 'pt',
+  'punjabi': 'pa', 'quechua': 'qu', 'romanian': 'ro', 'russian': 'ru',
+  'samoan': 'sm', 'sanskrit': 'sa', 'scots gaelic': 'gd', 'sepedi': 'nso',
+  'serbian': 'sr', 'sesotho': 'st', 'shona': 'sn', 'sindhi': 'sd',
+  'sinhala': 'si', 'slovak': 'sk', 'slovenian': 'sl', 'somali': 'so',
+  'spanish': 'es', 'sundanese': 'su', 'swahili': 'sw', 'swedish': 'sv',
+  'tajik': 'tg', 'tamil': 'ta', 'tatar': 'tt', 'telugu': 'te',
+  'thai': 'th', 'tigrinya': 'ti', 'tsonga': 'ts', 'turkish': 'tr',
+  'turkmen': 'tk', 'twi': 'ak', // 'ak' is often used for Akan/Twi. Verify.
+  'ukrainian': 'uk', 'urdu': 'ur', 'uyghur': 'ug', 'uzbek': 'uz', 
+  'vietnamese': 'vi', 'welsh': 'cy', 'xhosa': 'xh', 'yiddish': 'yi', 
+  'yoruba': 'yo', 'zulu': 'zu'
+};
+
+export function getCode(desiredLang) {
   if (!desiredLang) {
-    return false
+    return false;
   }
-  desiredLang = desiredLang.toLowerCase()
-  if (langs[desiredLang]) {
-    return desiredLang
+  // Normalize to lowercase to match keys in nameToCodeMap
+  const lowerDesiredLang = desiredLang.toLowerCase();
+  const code = nameToCodeMap[lowerDesiredLang];
+
+  if (!code) {
+    // This warning is helpful during development if a language name from content.js
+    // doesn't find a mapping.
+    console.warn(`No code found for language name: "${desiredLang}" (tried "${lowerDesiredLang}"). Check 'nameToCodeMap' in copilot/languages.js.`);
+    return false;
   }
-  var keys = Object.keys(langs).filter(key => {
-    if (typeof langs[key] !== 'string') {
-      return false
-    }
-    return langs[key].toLowerCase() === desiredLang
-  })
-  return keys[0] || false
+  return code;
 }
 
-function isSupported(desiredLang) {
-  return Boolean(getCode(desiredLang))
-}
-
-module.exports = langs
-module.exports.isSupported = isSupported
-module.exports.getCode = getCode
+// Sanity check: Ensure all actualAvailableLanguages have a mapping.
+// This runs when the module is first loaded.
+actualAvailableLanguages.forEach(langName => {
+  // Ensure the lookup key is also lowercase, matching how nameToCodeMap is defined.
+  if (!nameToCodeMap[langName.toLowerCase()]) { 
+    console.warn(`Language "${langName}" from actualAvailableLanguages is missing in nameToCodeMap or has a casing mismatch.`);
+  }
+});

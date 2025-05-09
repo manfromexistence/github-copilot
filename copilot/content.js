@@ -37,7 +37,7 @@ function updateSpeakButtonIcon(button, state) {
             altText = 'Speak';
             break;
     }
-    button.innerHTML = `<img src="${chrome.runtime.getURL(iconFile)}" alt="${altText}">&nbsp;Speak`;
+    button.innerHTML = `<img src="${chrome.runtime.getURL(iconFile)}" alt="${altText}">`;
 }
 
 // Helper function to handle TTS blob and audio playback
@@ -124,7 +124,7 @@ function addCustomButtonsToToolbar(actionsToolbar) {
 
     // 1. Create "Change Language" button
     const changeLangButton = document.createElement('button');
-    changeLangButton.innerHTML = `<img src="${chrome.runtime.getURL('languages.png')}" alt="Language">&nbsp;Lang`;
+    changeLangButton.innerHTML = `<img src="${chrome.runtime.getURL('languages.png')}" alt="Language">`;
     changeLangButton.title = 'Change Language';
     changeLangButton.className = 'copilot-enhancer-button copilot-enhancer-button-lang';
     changeLangButton.classList.add('prc-Button-ButtonBase-c50BI', 'prc-Button-IconButton-szpyj');
@@ -132,29 +132,42 @@ function addCustomButtonsToToolbar(actionsToolbar) {
     changeLangButton.dataset.variant = "invisible";
 
     changeLangButton.onclick = (event) => {
-        event.stopPropagation();
+        event.stopPropagation(); // Prevent other click handlers, e.g., closing the chat
         const existingMenu = actionsToolbar.querySelector('.copilot-language-menu');
         if (existingMenu) {
             existingMenu.remove();
+            return; // Toggle behavior: click again to close
+        }
+
+        // Find the messageTurnElement associated with this button/toolbar
+        // This is needed by showLanguageMenu to know which text to translate
+        const messageTurnElement = changeLangButton.closest('div[data-testid^="chat-message-content-turn-"]');
+        if (!messageTurnElement) {
+            console.error("Copilot Enhancer: Could not find parent message turn element for language button.");
+            // Optionally, show an alert or disable the button functionality here
+            alert("Copilot Enhancer: Could not identify the message to translate.");
             return;
         }
 
         chrome.runtime.sendMessage({ action: 'getLanguages' }, (response) => {
             if (chrome.runtime.lastError) {
                 console.error('Error getting languages:', chrome.runtime.lastError.message);
-                alert('Could not load languages.');
+                alert('Could not load languages: ' + chrome.runtime.lastError.message);
                 return;
             }
             if (response && response.languages) {
-                const messageTurnElement = actionsToolbar.closest('div[data-testid^="chat-message-content-turn-"]');
+                // Pass actionsToolbar as well, as showLanguageMenu uses it for appending the menu
+                // and messageTurnElement to identify the text content
                 showLanguageMenu(response.languages, changeLangButton, messageTurnElement, actionsToolbar);
+            } else {
+                alert('Could not load languages. Empty or invalid response from background script.');
             }
         });
     };
 
     // 2. Create "Speak aloud" button
     const speakButton = document.createElement('button');
-    speakButton.innerHTML = `<img src="${chrome.runtime.getURL('volume-2.png')}" alt="Speak">&nbsp;Speak`; // Initial icon
+    speakButton.innerHTML = `<img src="${chrome.runtime.getURL('volume-2.png')}" alt="Speak">`; // Initial icon
     speakButton.title = 'Speak Aloud';
     speakButton.className = 'copilot-enhancer-button copilot-enhancer-button-speak';
     speakButton.classList.add('prc-Button-ButtonBase-c50BI', 'prc-Button-IconButton-szpyj');
@@ -294,75 +307,112 @@ function showLanguageMenu(languages, button, messageTurnElement, actionsToolbar)
     }
 
     const menu = document.createElement('div');
-    menu.className = 'copilot-language-menu'; // Assign class
-    // Dynamic positioning based on the button
+    menu.className = 'copilot-language-menu';
     menu.style.top = (button.offsetTop + button.offsetHeight) + 'px';
     menu.style.left = button.offsetLeft + 'px';
 
-    Object.entries(languages).forEach(([code, name]) => {
-        const langOption = document.createElement('div');
-        langOption.textContent = name;
-        langOption.className = 'copilot-language-menu-option'; // Assign class
-        langOption.dataset.langCode = code;
+    // Assuming 'languages' is an array of language names, e.g., ['english', 'spanish', 'french']
+    // as derived from LANGUAGES.md via background.js
+    if (Array.isArray(languages)) {
+        languages.forEach(langName => {
+            if (typeof langName !== 'string') {
+                console.warn("Copilot Enhancer: Invalid language name in list:", langName);
+                return; // Skip non-string entries
+            }
+            const langOption = document.createElement('div');
+            // Capitalize for display: 'afrikaans' -> 'Afrikaans'
+            const displayName = langName.charAt(0).toUpperCase() + langName.slice(1);
+            langOption.textContent = displayName;
+            langOption.className = 'copilot-language-menu-option';
+            langOption.dataset.langName = langName; // Store the original name, e.g., 'afrikaans'
 
-        langOption.onclick = (event) => {
-            event.stopPropagation(); 
-            const targetLangCode = langOption.dataset.langCode;
-            let originalText = '';
+            langOption.onclick = (event) => {
+                event.stopPropagation();
+                const targetLangName = langOption.dataset.langName; // e.g., 'afrikaans'
+                let originalText = '';
 
-            if (messageTurnElement) {
-                const markdownBody = messageTurnElement.querySelector('.markdown-body');
-                if (markdownBody) {
-                    originalText = markdownBody.innerText;
-                } else {
-                    const contentContainer = messageTurnElement.querySelector('div[class*="ChatMessageContent-module__container"]');
-                    if (contentContainer) {
-                        originalText = contentContainer.innerText;
-                        const actionsText = actionsToolbar.innerText;
-                        if (originalText.includes(actionsText)) {
-                            originalText = originalText.replace(actionsText, '').trim();
+                // Logic to find originalText from the messageTurnElement
+                if (messageTurnElement) {
+                    // Prefer more specific content elements first
+                    const markdownBody = messageTurnElement.querySelector('.markdown-body');
+                    const responseContent = messageTurnElement.querySelector('[class*="MessageContent-module__messageContent"]');
+                    const chatMessageContent = messageTurnElement.querySelector('div[class*="ChatMessageContent-module__container"]');
+
+                    if (markdownBody) {
+                        originalText = markdownBody.innerText;
+                    } else if (responseContent) {
+                        originalText = responseContent.innerText;
+                    } else if (chatMessageContent) {
+                        originalText = chatMessageContent.innerText;
+                        // Clean up if it includes button text from the toolbar (less likely with specific selectors)
+                        const actionsToolbarText = actionsToolbar.innerText;
+                        if (originalText.includes(actionsToolbarText)) {
+                            originalText = originalText.replace(actionsToolbarText, '').trim();
+                        }
+                    } else {
+                         // Fallback to a broader search within the message turn element
+                        originalText = messageTurnElement.innerText;
+                        // Attempt to clean known button/toolbar text
+                        const toolbarTextContent = actionsToolbar.innerText;
+                        if (toolbarTextContent && originalText.includes(toolbarTextContent)) {
+                            originalText = originalText.substring(0, originalText.indexOf(toolbarTextContent)).trim();
                         }
                     }
                 }
-            }
 
-            if (originalText && originalText.trim()) {
-                chrome.runtime.sendMessage({
-                    action: 'translateText',
-                    data: { text: originalText.trim(), targetLang: targetLangCode }
-                }, (response) => {
-                    if (chrome.runtime.lastError) {
-                        console.error('Error translating text:', chrome.runtime.lastError.message);
-                        alert('Could not translate text.');
-                        return;
-                    }
-                    if (response && response.translatedText) {
-                        const markdownBody = messageTurnElement.querySelector('.markdown-body');
-                        if (markdownBody) {
-                            markdownBody.innerText = response.translatedText;
-                        } else {
-                             const contentContainer = messageTurnElement.querySelector('div[class*="ChatMessageContent-module__container"]');
-                             if(contentContainer){
-                                // Attempt to preserve some structure if possible, though innerText replacement is simpler
-                                // For now, just replace the most likely content holder
-                                contentContainer.innerText = response.translatedText;
-                             }
+                if (originalText && originalText.trim()) {
+                    chrome.runtime.sendMessage({
+                        action: 'translateText',
+                        data: { text: originalText.trim(), targetLang: targetLangName } // Send language name
+                    }, (response) => {
+                        if (chrome.runtime.lastError) {
+                            console.error('Error translating text:', chrome.runtime.lastError.message);
+                            alert('Could not translate text: ' + chrome.runtime.lastError.message);
+                            return;
                         }
-                    }
-                });
-            } else {
-                alert('Copilot Enhancer: Could not find text to translate.');
-            }
-            menu.remove(); // Close menu after selection
-        };
-        menu.appendChild(langOption);
-    });
+                        if (response && response.translatedText) {
+                            // Update the text in the UI
+                            const markdownBody = messageTurnElement.querySelector('.markdown-body');
+                            const responseContent = messageTurnElement.querySelector('[class*="MessageContent-module__messageContent"]');
+                            const chatMessageContent = messageTurnElement.querySelector('div[class*="ChatMessageContent-module__container"]');
 
-    // Add menu to the actions toolbar (or a more suitable parent if actionsToolbar clips content)
-    // Using button.offsetParent or a specific container might be better for positioning.
-    // For now, let's append to actionsToolbar and rely on absolute positioning.
+                            if (markdownBody) {
+                                markdownBody.innerText = response.translatedText;
+                            } else if (responseContent) {
+                                responseContent.innerText = response.translatedText;
+                            } else if (chatMessageContent) {
+                                // Be careful with innerText on containers; might wipe out other elements.
+                                // If possible, find the most specific text holding element.
+                                // For now, this is a broad update.
+                                chatMessageContent.innerText = response.translatedText;
+                            } else {
+                                // If no specific element found, this might be risky
+                                console.warn("Copilot Enhancer: Could not find specific element to update with translated text. MessageTurnElement updated broadly.");
+                                messageTurnElement.innerText = response.translatedText; // Fallback, less ideal
+                            }
+                        } else if (response && response.error) {
+                            alert('Error from translation service: ' + response.error);
+                        } else {
+                            alert('Could not translate text. Unknown response from background script.');
+                        }
+                    });
+                } else {
+                    alert('Copilot Enhancer: Could not find text to translate in the message.');
+                    console.warn("Copilot Enhancer: No text found for translation. MessageTurnElement:", messageTurnElement, "Toolbar:", actionsToolbar);
+                }
+                menu.remove(); // Close menu after selection
+            };
+            menu.appendChild(langOption);
+        });
+    } else {
+        console.error('Copilot Enhancer: Languages data is not an array or is empty:', languages);
+        const errorOption = document.createElement('div');
+        errorOption.textContent = 'Error: Langs not loaded.';
+        errorOption.className = 'copilot-language-menu-option';
+        menu.appendChild(errorOption);
+    }
+
     actionsToolbar.appendChild(menu);
-
 
     // Optional: Close menu when clicking outside
     // This can be tricky with event propagation.
@@ -424,4 +474,3 @@ observer.observe(document.body, {
 processPageToolbars();
 
 console.log('GitHub Copilot Chat Enhancer content script loaded and TTS logic updated.');
-
