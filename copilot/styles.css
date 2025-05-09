@@ -46,7 +46,6 @@
     max-height: 200px;
     overflow-y: auto;
     border-radius: 6px; /* Consistent with GitHub's UI */
-    box-shadow: var(--color-shadow-large, 0 8px 24px rgba(0,0,0,0.4)); /* Consistent shadow */
     /* Positioning will be set by JS if it depends on button location */
 }
 
@@ -58,7 +57,7 @@
 }
 
 .copilot-language-menu-option:hover {
-    background-color: #141920; /* Slightly lighter black for hover */
+    background-color: #1f2733; /* Slightly lighter black for hover */
     color: #FFFFFF; /* Ensure text color remains white on hover */
 }
 
