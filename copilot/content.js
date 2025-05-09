@@ -55,11 +55,11 @@ function updateSpeakButtonIcon(button, state) {
             button.classList.add('copilot-enhancer-loader-spinning'); // Add spinning class
             break;
         case 'playing':
-            iconFile = 'play.png'; // Use play icon (or a pause icon if semantics are "click to pause")
+            iconFile = 'pause.png'; // Use play icon (or a pause icon if semantics are "click to pause")
             altText = 'Pause'; // Alt text reflects action if clicked
             break;
         case 'paused':
-            iconFile = 'volume-2.png'; // Use volume icon to indicate it can be resumed (or a play icon)
+            iconFile = 'play.png'; // Use volume icon to indicate it can be resumed (or a play icon)
             altText = 'Resume'; // Alt text reflects action if clicked
             break;
         case 'error':
@@ -525,3 +525,4 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 console.log('GitHub Copilot Chat Enhancer content script loaded and TTS logic updated.');
+
