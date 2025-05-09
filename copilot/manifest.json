@@ -21,8 +21,7 @@
   "host_permissions": [
     "https://unpkg.com/",
     "https://*.google.com/",
-    "https://friday-backend.vercel.app/",
-    "https://manfromexistence-translate.vercel.app/"
+    "https://manfromexistence-api.vercel.app/"
   ],
   "content_scripts": [
     {
@@ -51,3 +50,4 @@
     }
   ]
 }
+

@@ -1,3 +1,5 @@
 fastapi
 uvicorn
 deep-translator
+gTTS
+langdetect

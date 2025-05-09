@@ -40,21 +40,27 @@
 /* Styles for the language selection menu */
 .copilot-language-menu {
     position: absolute;
-    background-color: white;
-    border: 1px solid #ccc;
+    background-color: var(--color-canvas-overlay, #2f363d); /* Dark background with fallback */
+    border: 1px solid var(--color-border-default, #484f58);
     padding: 5px;
     z-index: 1000;
     max-height: 200px;
     overflow-y: auto;
+    border-radius: 6px; /* Consistent with GitHub's UI */
+    box-shadow: var(--color-shadow-large, 0 8px 24px rgba(0,0,0,0.4)); /* Consistent shadow */
     /* Positioning will be set by JS if it depends on button location */
 }
 
 .copilot-language-menu-option {
-    padding: 5px;
+    padding: 8px 12px; /* More padding for better touch/click targets */
     cursor: pointer;
+    color: var(--color-fg-default, #adbac7); /* Light text with fallback */
+    border-radius: 4px; /* Slight rounding for options */
 }
 
 .copilot-language-menu-option:hover {
-    background-color: #f0f0f0;
+    background-color: var(--color-action-list-item-default-hover-bg, #40474f); /* Hover background with fallback */
+    color: var(--color-fg-default, #c9d1d9); /* Ensure text color remains readable on hover */
 }
+
 

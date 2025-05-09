@@ -42,7 +42,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true; // Asynchronous response
     }
 
-    fetch('https://manfromexistence-translate.vercel.app/', {
+    fetch('https://manfromexistence-api.vercel.app/translate', { // Updated URL
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -87,7 +87,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // Indicates that the response is sent asynchronously.
   } else if (request.action === 'fetchTTS') {
     const { text } = request.data;
-    fetch('https://friday-backend.vercel.app/tts', {
+    fetch('https://manfromexistence-api.vercel.app/tts', { // Updated URL
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -121,3 +121,4 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 console.log('GitHub Copilot Chat Enhancer background script loaded and attempting to use actual translate package.');
 console.warn('Reminder: The translate package (especially its use of "got" and other Node.js modules) may need adaptation (e.g., using "fetch") or bundling to work correctly in this service worker environment.');
+

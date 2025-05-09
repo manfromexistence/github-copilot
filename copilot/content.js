@@ -481,3 +481,4 @@ observer.observe(document.body, {
 processPageToolbars();
 
 console.log('GitHub Copilot Chat Enhancer content script loaded and TTS logic updated.');
+
