@@ -1,0 +1,16 @@
+/* Styles for the custom buttons */
+.copilot-enhancer-button {
+    /* GitHub's own classes (prc-Button-ButtonBase-c50BI, etc.) handle most styling. */
+    /* You can add overrides or additional styles here if needed. */
+    /* Example: ensure consistent vertical alignment if emojis cause issues, though usually not needed. */
+    /* vertical-align: middle; */
+}
+
+/* Specific styling if you want to differentiate them further */
+.copilot-enhancer-button-lang {
+    /* color: blue; */ /* Example */
+}
+
+.copilot-enhancer-button-speak {
+    /* color: green; */ /* Example */
+}
