@@ -78,8 +78,8 @@ async def text_to_speech(request: TTSRequest):
         raise HTTPException(status_code=500, detail=f"An error occurred during TTS generation: {str(e)}")
 
 # To run this application locally (optional, Vercel will handle it in production):
-# if __name__ == "__main__":
-#     uvicorn.run(app, host="0.0.0.0", port=8000)
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
 # The following line is kept for Vercel, as it might expect 'app' to be defined at the top level.
 # If Vercel uses a different entry point or command, this might need adjustment in vercel.json or procfile.

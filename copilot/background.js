@@ -87,38 +87,60 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // Indicates that the response is sent asynchronously.
   } else if (request.action === 'fetchTTS') {
     const { text } = request.data;
-    fetch('https://manfromexistence-api.vercel.app/tts', { // Updated URL
+    console.log(`Background: Received fetchTTS request for text: "${text ? text.substring(0, 50) + '...' : 'empty'}"`);
+
+    fetch('https://manfromexistence-api.vercel.app/tts', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        // Origin will be set by the browser, but you can be explicit if needed
-        // 'Origin': sender.origin || (sender.tab ? new URL(sender.tab.url).origin : 'null') 
+        'Accept': 'audio/mpeg',
       },
       body: JSON.stringify({ text })
     })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error ${response.status}`);
+    .then(response => {
+      console.log(`Background: TTS fetch response status: ${response.status}, ok: ${response.ok}`);
+      if (!response.ok) {
+        return response.text().then(errorText => {
+          console.error(`Background: TTS API Error. Status: ${response.status}. Body:`, errorText);
+          throw new Error(`TTS API request failed: ${response.status} - ${errorText || 'No error text from server'}`);
+        });
+      }
+      console.log('Background: TTS fetch response OK. Attempting to get blob.');
+      return response.blob();
+    })
+    .then(audioBlob => {
+      if (audioBlob) {
+        console.log(`Background: TTS blob received. Type: ${audioBlob.type}, Size: ${audioBlob.size}`);
+        // Ensure the blob is of the expected type and has content
+        if (audioBlob.size > 0 && audioBlob.type === 'audio/mpeg') {
+          console.log('Background: Valid audioBlob received. Sending to content script.');
+          sendResponse({ audioBlob: audioBlob, error: null });
+        } else {
+          const errorMsg = `Received invalid audio blob. Type: ${audioBlob.type}, Size: ${audioBlob.size}. Expected audio/mpeg with size > 0.`;
+          console.error(`Background: ${errorMsg}`);
+          sendResponse({ audioBlob: null, error: errorMsg });
         }
-        return response.blob();
-      })
-      .then(audioBlob => {
-        // Cannot send Blob directly, convert to data URL or object URL in content script
-        // For simplicity, let's send blob as is and handle in content script if possible,
-        // or convert to data URL here if needed (more complex for service worker without DOM APIs like FileReader directly)
-        // A common pattern is to create an Object URL in the content script from the blob.
-        // Here, we will try to send the blob. If it fails, data URL is the fallback.
-        sendResponse({ audioBlob: audioBlob, error: null });
-      })
-      .catch(error => {
-        console.error('Error fetching TTS:', error);
-        sendResponse({ audioBlob: null, error: error.message });
-      });
+      } else {
+        // This case should ideally not be reached if response.blob() resolves
+        const errorMsg = 'TTS fetch succeeded but promise resolved with a null or undefined blob.';
+        console.error(`Background: ${errorMsg}`);
+        sendResponse({ audioBlob: null, error: errorMsg });
+      }
+    })
+    .catch(error => {
+      // This catches:
+      // 1. Network errors (fetch itself fails)
+      // 2. Errors thrown from !response.ok (e.g., TTS API request failed...)
+      // 3. Errors from response.blob() if it rejects
+      // 4. Any other unexpected errors in the promise chain before this catch.
+      console.error('Background: Error in fetchTTS catch block:', error);
+      sendResponse({ audioBlob: null, error: error.message || 'Unknown error during TTS fetch process.' });
+    });
     return true; // Indicates asynchronous response
   }
 });
 
 console.log('GitHub Copilot Chat Enhancer background script loaded and attempting to use actual translate package.');
 console.warn('Reminder: The translate package (especially its use of "got" and other Node.js modules) may need adaptation (e.g., using "fetch") or bundling to work correctly in this service worker environment.');
+
 
