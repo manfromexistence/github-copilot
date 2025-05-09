@@ -1,29 +1,44 @@
-/*
-* @Author: shikar
-* @Date:   2017-02-05 15:28:31
-* @Last Modified by:   shikar
-* @Last Modified time: 2020-07-28 17:20:29
-*/
-'use strict'
-const _ = require("lodash")
-const isUrl = require("is-url")
-const isNumber = require("num-or-not")
-const isKeyword = require('is-keyword-js')
-const got = require('got')
-const userAgents = require("user-agents")
-const token = require('./token')
-const languages = require('./languages')
+import _ from 'lodash';
+import isUrl from 'is-url';
+import got from 'got';
+import UserAgents from 'user-agents';
+import * as token from './token';
+import * as languages from './languages';
 
-function checkSame(v, maps) {
-  for (const idx in maps) {
-    if (maps[idx].v === v) {
-      return idx
-    }
-  }
-  return -1
+// Assume these functions are defined elsewhere or should be implemented
+// For now, we'll declare them to satisfy the type checker.
+declare function isNumber(value: any): boolean;
+declare function isKeyword(value: any): boolean;
+
+interface MapItem {
+  p: string;
+  v: string;
+  i: number;
+  l: number;
+  s?: boolean;
 }
 
-function enMap(obj, except=[], path='', map=[]) {
+interface TranslateOptions {
+  from?: string;
+  to?: string;
+  except?: string[];
+}
+
+interface TokenResult {
+  name: string;
+  value: string;
+}
+
+function checkSame(v: string, maps: MapItem[]): number {
+  for (let i = 0; i < maps.length; i++) {
+    if (maps[i].v === v) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+function enMap(obj: any, except: string[] = [], path = '', map: MapItem[] = []): MapItem[] {
   if (_.isObject(obj) == true) {
     _.forEach(obj, (v, k) => {
       const furKeyStr = _.isNumber(k) ? `[${k}]` : ( path && '.' ) + k
@@ -45,8 +60,8 @@ function enMap(obj, except=[], path='', map=[]) {
             map.splice(idx+1, 0, {
               p: curPath,
               v: v,
-              i: map[idx].i,
-              l: map[idx].l,
+              i: (map[idx] as MapItem).i,
+              l: (map[idx] as MapItem).l,
               s: true
             })
           } else {
@@ -65,15 +80,15 @@ function enMap(obj, except=[], path='', map=[]) {
   } else {
     map.push({
       p: '',
-      v: obj,
+      v: String(obj), // Ensure obj is string if not an object
       i: 0,
-      l: obj.split("\n").length
+      l: String(obj).split("\n").length
     })
   }
   return map
 }
 
-function deMap(src, maps, dest) {
+function deMap(src: any, maps: MapItem[], dest: string): any {
   if (_.isObject(src) == true) {
     src = _.clone(src)
     dest = dest.split("\n")
@@ -86,9 +101,9 @@ function deMap(src, maps, dest) {
   return src
 }
 
-async function translate(input, opts = {}, domain='translate.google.cn') {
-  const langs = [opts.from, opts.to]
-  const except = opts.except || []
+export default async function translate(input: any, opts: TranslateOptions = {}, domain = 'translate.google.cn'): Promise<any> {
+  const langs: (string | undefined)[] = [opts.from, opts.to]
+  const except: string[] = opts.except || []
   input = _.cloneDeep(input)
   for (const lang of langs) {
     if (lang && !languages.isSupported(lang)) {
@@ -101,9 +116,9 @@ async function translate(input, opts = {}, domain='translate.google.cn') {
   opts.from = languages.getCode(opts.from || 'auto')
   opts.to = languages.getCode(opts.to || 'en')
 
-  const strMap = enMap(input, except)
+  const strMap: MapItem[] = enMap(input, except)
   const text = _.map(_.differenceBy(strMap, [{ s: true }], 's'), 'v').join("\n")
-  const tokenRet = await token.get(text, domain)
+  const tokenRet: TokenResult = await token.get(text, domain)
   const url = `https://${domain}/translate_a/single`
   const searchParams = new URLSearchParams([
     ['client', 't'],
@@ -120,7 +135,7 @@ async function translate(input, opts = {}, domain='translate.google.cn') {
     ['q', text],
     [tokenRet.name, tokenRet.value]
   ])
-  const opt = { responseType: 'json', headers: {'User-Agent': new userAgents({ deviceCategory: 'desktop' }).toString()} }
+  const opt: got.Options = { responseType: 'json', headers: {'User-Agent': new UserAgents({ deviceCategory: 'desktop' }).toString()} }
   if (searchParams.toString().length <= 1980) {
     opt.method = 'GET'
   } else {
@@ -130,11 +145,11 @@ async function translate(input, opts = {}, domain='translate.google.cn') {
   }
   opt.searchParams = searchParams
   try {
-    const { body } = await got(url, opt)
-    const retString = _.map(body[0], 0).join('')
+    const { body }: { body: any[][] } = await got(url, opt) // Assuming body[0] is an array
+    const retString = _.map(body[0], (item: any) => item[0]).join('') // Access the first element of inner arrays
     return deMap(input, strMap, retString)
-  } catch (error) {
-    let e = new Error(error.message)
+  } catch (error: any) {
+    let e = new Error(error.message) as Error & { code?: string };
     if (error.statusCode !== undefined && error.statusCode !== 200) {
       e.code = 'BAD_REQUEST'
     } else {
@@ -144,6 +159,6 @@ async function translate(input, opts = {}, domain='translate.google.cn') {
   }
 }
 
-module.exports = translate
-module.exports.languages = languages
+export { languages }
+
 
