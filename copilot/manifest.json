@@ -16,13 +16,20 @@
   "permissions": [
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "offscreen"
   ],
   "host_permissions": [
     "https://unpkg.com/",
     "https://*.google.com/",
     "https://manfromexistence-api.vercel.app/"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; media-src 'self' data:;",
+    "sandbox": "sandbox allow-scripts; script-src 'self' 'unsafe-eval'; child-src 'self';",
+    "content_scripts": "script-src 'self';"
+  },
+  "minimum_chrome_version": "109",
   "content_scripts": [
     {
       "matches": ["https://github.com/copilot/*"],
@@ -44,7 +51,8 @@
         "android-chrome-192x192.png",
         "android-chrome-512x512.png",
         "apple-touch-icon.png",
-        "favicon.ico"
+        "favicon.ico",
+        "offscreen.html"
       ],
       "matches": ["https://github.com/*"]
     }

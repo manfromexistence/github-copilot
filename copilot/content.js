@@ -1,4 +1,3 @@
-let currentAudio = null; // Holds the single Audio object
 let currentPlayingButton = null; // Reference to the button whose audio is playing/loading/paused
 let ttsCache = {}; // Cache for audio blobs: { text: blob }
 
@@ -39,82 +38,6 @@ function updateSpeakButtonIcon(button, state) {
     }
     button.innerHTML = `<img src="${chrome.runtime.getURL(iconFile)}" alt="${altText}">`;
 }
-
-// Helper function to handle TTS blob and audio playback
-function handleTTSBlob(blob, button, textKey) {
-    if (currentAudio) { // Stop and clear any existing audio
-        currentAudio.pause();
-        if (currentAudio.src && currentAudio.src.startsWith('blob:')) {
-            URL.revokeObjectURL(currentAudio.src);
-        }
-    }
-
-    currentAudio = new Audio();
-    currentAudio.src = URL.createObjectURL(blob);
-
-    currentAudio.onplay = () => {
-        if (currentPlayingButton === button) {
-            button.dataset.ttsState = 'playing';
-            updateSpeakButtonIcon(button, 'playing');
-        }
-    };
-
-    currentAudio.onpause = () => {
-        // Only set to paused if it was genuinely paused by user or end of audio,
-        // not if it was programmatically paused before playing something else or due to an error.
-        if (currentPlayingButton === button && currentAudio && !currentAudio.ended && button.dataset.ttsState === 'playing') {
-            button.dataset.ttsState = 'paused';
-            updateSpeakButtonIcon(button, 'paused');
-        }
-    };
-
-    currentAudio.onended = () => {
-        if (currentPlayingButton === button) {
-            button.dataset.ttsState = 'idle';
-            updateSpeakButtonIcon(button, 'idle');
-            if (currentAudio && currentAudio.src && currentAudio.src.startsWith('blob:')) {
-                URL.revokeObjectURL(currentAudio.src);
-            }
-            currentAudio = null;
-            currentPlayingButton = null;
-        }
-    };
-
-    currentAudio.onerror = () => {
-        if (currentPlayingButton === button) {
-            console.error('Copilot Enhancer: Error playing audio.');
-            button.dataset.ttsState = 'idle';
-            updateSpeakButtonIcon(button, 'error');
-            alert('Copilot Enhancer: Error playing audio.');
-            if (currentAudio && currentAudio.src && currentAudio.src.startsWith('blob:')) {
-                URL.revokeObjectURL(currentAudio.src);
-            }
-            currentAudio = null;
-            currentPlayingButton = null;
-        }
-    };
-
-    currentAudio.play().then(() => {
-        // Play started
-        if (currentPlayingButton === button) { // Ensure it's still the target
-             button.dataset.ttsState = 'playing'; // onplay will also set this
-             updateSpeakButtonIcon(button, 'playing');
-        }
-    }).catch(e => {
-        if (currentPlayingButton === button) {
-            console.error('Copilot Enhancer: Could not start audio playback:', e);
-            button.dataset.ttsState = 'idle';
-            updateSpeakButtonIcon(button, 'error');
-            alert('Copilot Enhancer: Could not start audio playback.');
-            if (currentAudio && currentAudio.src && currentAudio.src.startsWith('blob:')) {
-                URL.revokeObjectURL(currentAudio.src);
-            }
-            currentAudio = null;
-            currentPlayingButton = null;
-        }
-    });
-}
-
 
 function addCustomButtonsToToolbar(actionsToolbar) {
     // Prevent adding buttons multiple times to the same toolbar
@@ -212,18 +135,15 @@ function addCustomButtonsToToolbar(actionsToolbar) {
 
         // If another button's audio is playing/paused, stop it and reset that button.
         if (currentPlayingButton && currentPlayingButton !== thisButton) {
-            if (currentAudio) {
-                currentAudio.pause(); // This will trigger onended or onpause for the old button if managed correctly
-                if (currentAudio.src && currentAudio.src.startsWith('blob:')) {
-                    URL.revokeObjectURL(currentAudio.src);
-                }
-            }
-            currentPlayingButton.dataset.ttsState = 'idle';
-            updateSpeakButtonIcon(currentPlayingButton, 'idle');
-            currentAudio = null; // Ensure currentAudio is cleared before being reassigned
+            chrome.runtime.sendMessage({
+                action: 'controlTTSExtension',
+                subAction: 'stopTTS', // Offscreen.js should handle this to stop and clear audio
+                data: { textKey: currentPlayingButton.textKey } // Assuming we store textKey on button or retrieve it
+            });
+            // The state of currentPlayingButton will be updated via ttsStateUpdateFromBackground
         }
-        
         currentPlayingButton = thisButton; // Set current button
+        thisButton.textKey = textToSpeak; // Associate textKey with the button for state updates
         const currentState = thisButton.dataset.ttsState;
 
         if (currentState === 'loading') {
@@ -233,48 +153,63 @@ function addCustomButtonsToToolbar(actionsToolbar) {
         }
 
         if (currentState === 'playing') {
-            if (currentAudio) currentAudio.pause(); // onpause handler updates icon and state
+            chrome.runtime.sendMessage({
+                action: 'controlTTSExtension',
+                subAction: 'pauseTTS',
+                data: { textKey: textToSpeak }
+            });
         } else if (currentState === 'paused') {
-            if (currentAudio) currentAudio.play().catch(e => {
-                 console.error('Copilot Enhancer: Error resuming playback:', e);
-                 thisButton.dataset.ttsState = 'idle';
-                 updateSpeakButtonIcon(thisButton, 'error');
-                 alert('Copilot Enhancer: Could not resume audio playback.');
-                 currentPlayingButton = null; // Reset
-            }); // onplay handler updates icon and state
+            thisButton.dataset.ttsState = 'loading'; // Show loading while offscreen processes
+            updateSpeakButtonIcon(thisButton, 'loading');
+            if (ttsCache[textToSpeak]) {
+                chrome.runtime.sendMessage({
+                    action: 'playAudioInOffscreen', // This tells background to tell offscreen to play
+                    data: { audioDataUrl: ttsCache[textToSpeak], textKey: textToSpeak }
+                });
+            } else {
+                console.error('Copilot Enhancer: Cannot resume paused audio, data not in cache. Re-fetching.');
+                thisButton.dataset.ttsState = 'idle'; // Reset and re-fetch
+                updateSpeakButtonIcon(thisButton, 'idle');
+                thisButton.click(); // Simulate a new click to fetch
+            }
         } else { // State is 'idle' or 'error', fetch/play new
             thisButton.dataset.ttsState = 'loading';
             updateSpeakButtonIcon(thisButton, 'loading');
 
             if (ttsCache[textToSpeak]) {
-                console.log('Copilot Enhancer: Playing from cache');
-                handleTTSBlob(ttsCache[textToSpeak], thisButton, textToSpeak);
+                console.log('Copilot Enhancer: Playing from cache via offscreen.');
+                chrome.runtime.sendMessage({
+                    action: 'playAudioInOffscreen',
+                    data: { audioDataUrl: ttsCache[textToSpeak], textKey: textToSpeak }
+                }, (response) => {
+                    if (chrome.runtime.lastError || !response || !response.success) {
+                        console.error('Copilot Enhancer: Error initiating cached TTS playback:', chrome.runtime.lastError || response?.error);
+                        thisButton.dataset.ttsState = 'error';
+                        updateSpeakButtonIcon(thisButton, 'error');
+                        // alert('Copilot Enhancer: Could not play cached TTS. ' + (chrome.runtime.lastError?.message || response?.error || 'Unknown error'));
+                        if (currentPlayingButton === thisButton) currentPlayingButton = null;
+                    }
+                });
             } else {
-                console.log('Copilot Enhancer: Fetching TTS from background');
+                console.log('Copilot Enhancer: Fetching TTS from background (for offscreen playback).');
                 chrome.runtime.sendMessage({ action: 'fetchTTS', data: { text: textToSpeak } }, (response) => {
-                    // Check if this button is still the one we care about
-                    if (currentPlayingButton !== thisButton) {
-                        // If it was loading and then reset by another action or this is a stale callback
-                        if (thisButton.dataset.ttsState === 'loading') {
-                           thisButton.dataset.ttsState = 'idle';
-                           updateSpeakButtonIcon(thisButton, 'idle');
-                        }
-                        console.log('Copilot Enhancer: TTS response for a button that is no longer active.');
+                    if (chrome.runtime.lastError || !response) {
+                        console.error('Copilot Enhancer: Error fetching TTS - No response or runtime error:', chrome.runtime.lastError);
+                        thisButton.dataset.ttsState = 'error';
+                        updateSpeakButtonIcon(thisButton, 'error');
+                        // alert('Copilot Enhancer: Could not fetch TTS. ' + (chrome.runtime.lastError?.message || 'No response from background.'));
+                        if (currentPlayingButton === thisButton) currentPlayingButton = null;
                         return;
                     }
-
-                    if (chrome.runtime.lastError || !response || !response.blob) {
-                        console.error('Copilot Enhancer: Error fetching TTS -', chrome.runtime.lastError ? chrome.runtime.lastError.message : 'No response or blob');
-                        thisButton.dataset.ttsState = 'idle';
-                        updateSpeakButtonIcon(thisButton, 'error');
-                        alert('Copilot Enhancer: Could not fetch audio for TTS.');
-                        currentPlayingButton = null; // Clear as this attempt failed
+                    if (response.success && response.audioDataUrl) {
+                        console.log('Copilot Enhancer: TTS fetch successful, playback initiated via offscreen. Caching Data URL.');
+                        ttsCache[textToSpeak] = response.audioDataUrl;
                     } else {
-                        console.log('Copilot Enhancer: TTS fetched, playing.');
-                        // The backend sends the blob directly in the response.
-                        // If it were base64, we'd convert: const blob = new Blob([Uint8Array.from(atob(response.audioContent), c => c.charCodeAt(0))], { type: 'audio/mpeg' });
-                        ttsCache[textToSpeak] = response.blob;
-                        handleTTSBlob(response.blob, thisButton, textToSpeak);
+                        console.error('Copilot Enhancer: Error fetching TTS - Server/API error:', response.error);
+                        thisButton.dataset.ttsState = 'error';
+                        updateSpeakButtonIcon(thisButton, 'error');
+                        // alert('Copilot Enhancer: Could not fetch TTS. ' + (response.error || 'Unknown error from background.'));
+                        if (currentPlayingButton === thisButton) currentPlayingButton = null;
                     }
                 });
             }
@@ -479,6 +414,80 @@ observer.observe(document.body, {
 
 // Initial run in case content is already present when the script loads
 processPageToolbars();
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'ttsStateUpdateFromBackground') {
+        console.log('Copilot Enhancer (Content): Received ttsStateUpdateFromBackground:', request.data);
+        const { state, textKey, error, reason } = request.data;
+
+        // Find the button associated with this TTS event
+        // This requires that we've stored textKey on the button or have another way to identify it.
+        // Let's assume addCustomButtonsToToolbar stores `button.textKey = textToSpeak;`
+        let targetButton = null;
+        const allSpeakButtons = document.querySelectorAll('.copilot-enhancer-button-speak');
+        allSpeakButtons.forEach(btn => {
+            if (btn.textKey === textKey) {
+                targetButton = btn;
+            }
+        });
+
+        if (targetButton) {
+            console.log(`Copilot Enhancer (Content): Updating button for textKey: ${textKey.substring(0,30)}... to state: ${state}`);
+            targetButton.dataset.ttsState = state;
+            updateSpeakButtonIcon(targetButton, state);
+
+            if (state === 'error') {
+                alert('Copilot Enhancer: TTS Error - ' + (error || 'Unknown playback error.'));
+            }
+
+            if (state === 'playing') {
+                // If another button was playing/paused, its state should be updated to idle by offscreen via background
+                if (currentPlayingButton && currentPlayingButton !== targetButton) {
+                    console.log('Copilot Enhancer (Content): Different button was active, ensuring its state is idle.');
+                    currentPlayingButton.dataset.ttsState = 'idle';
+                    updateSpeakButtonIcon(currentPlayingButton, 'idle');
+                }
+                currentPlayingButton = targetButton;
+            } else if ((state === 'idle' || state === 'error') && currentPlayingButton === targetButton) {
+                currentPlayingButton = null;
+            } else if (state === 'paused' && currentPlayingButton !== targetButton) {
+                 // This case (another button becomes paused while currentPlayingButton is set to something else)
+                 // should ideally be handled by ensuring only one audio stream is 'active' (playing/paused)
+                 // from the offscreen document's perspective. The offscreen.js tries to stop previous audio.
+                 console.warn('Copilot Enhancer (Content): A button became paused but was not the currentPlayingButton.');
+            }
+
+        } else {
+            console.warn('Copilot Enhancer (Content): Received TTS state update for an unknown button/textKey:', textKey.substring(0,30));
+        }
+        sendResponse({ success: true }); // Acknowledge message
+        return true;
+    } else if (request.action === 'translateResponse') {
+        // ... (existing translation response handling, ensure it doesn't conflict)
+        const { translatedText, originalText, error } = request.data;
+        // ... (rest of your existing translation logic)
+        // Find the response element that contains the originalText and update it
+        const allResponseElements = document.querySelectorAll('.markdown-copilot-response-text-container'); // Adjust selector as needed
+        allResponseElements.forEach(responseElement => {
+            const currentResponseText = getCopilotResponseText(responseElement);
+            if (currentResponseText === originalText) {
+                const textContainer = responseElement.querySelector('div[class*="copilot-response-text--"]'); // Adjust selector
+                if (textContainer) {
+                    if (error) {
+                        textContainer.innerHTML = `<p style="color: red;">Error translating: ${error}</p><hr><p>${originalText}</p>`;
+                    } else {
+                        textContainer.innerHTML = translatedText; // Assuming translatedText is HTML or safe to inject
+                    }
+                }
+            }
+        });
+        sendResponse({status: 'Translation updated'});
+        return true;
+    }
+    // Return true for async sendResponse, or false/undefined if not handling the message or handling synchronously.
+    // If other listeners exist, ensure proper chaining or handling.
+    return false; 
+});
 
 console.log('GitHub Copilot Chat Enhancer content script loaded and TTS logic updated.');
 
