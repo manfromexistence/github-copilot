@@ -1,6 +1,6 @@
 // copilot/background.js
-import translate from '../translate/index.js';
-import actualAvailableLanguages, { getCode } from '../translate/languages.js';
+import translate from './index.js';
+import actualAvailableLanguages, { getCode } from './languages.js';
 
 // Use the actual languages from the package
 const availableLanguages = actualAvailableLanguages;
