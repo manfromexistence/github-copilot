@@ -15,7 +15,6 @@
     height: 16px;
     vertical-align: middle;
     /* margin-right: 4px; */ /* Removed space, as text will be removed */
-    filter: brightness(0) invert(1); /* Added to make icon white */
 }
 
 /* Spinning animation for loader icon */
@@ -40,7 +39,7 @@
 /* Styles for the language selection menu */
 .copilot-language-menu {
     position: absolute;
-    background-color: #000000; /* Hardcoded black background */
+    background-color: #151B23; /* Hardcoded black background */
     border: 1px solid var(--color-border-default, #484f58);
     padding: 5px;
     z-index: 1000;
@@ -59,7 +58,7 @@
 }
 
 .copilot-language-menu-option:hover {
-    background-color: #1a1a1a; /* Slightly lighter black for hover */
+    background-color: #141920; /* Slightly lighter black for hover */
     color: #FFFFFF; /* Ensure text color remains white on hover */
 }
 
