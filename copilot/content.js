@@ -3,40 +3,48 @@ let ttsCache = {}; // Cache for audio blobs: { text: blob }
 
 // Helper function to update the speak button's icon and state
 function updateSpeakButtonIcon(button, state) {
-    let iconFile = 'volume-2.png';
-    let altText = 'Speak';
+    let iconFile;
+    let altText;
+
     // Ensure button is an HTMLElement
     if (!(button instanceof HTMLElement)) {
         console.error('Invalid button element passed to updateSpeakButtonIcon', button);
         return;
     }
+
+    // Always remove spinning class first, then add it back if state is 'loading'
     button.classList.remove('copilot-enhancer-loader-spinning');
+    button.innerHTML = ''; // Clear previous icon/content to ensure clean update
 
     switch (state) {
         case 'loading':
-            iconFile = 'loader.png';
-            altText = 'Loading TTS';
-            button.classList.add('copilot-enhancer-loader-spinning');
+            iconFile = 'loader.png'; // Use loader icon
+            altText = 'Loading...';
+            button.classList.add('copilot-enhancer-loader-spinning'); // Add spinning class
             break;
         case 'playing':
-            iconFile = 'pause.png';
-            altText = 'Pause TTS';
+            iconFile = 'play.png'; // Use play icon (or a pause icon if semantics are "click to pause")
+            altText = 'Pause'; // Alt text reflects action if clicked
             break;
         case 'paused':
-            iconFile = 'play.png';
-            altText = 'Play TTS';
+            iconFile = 'volume-2.png'; // Use volume icon to indicate it can be resumed (or a play icon)
+            altText = 'Resume'; // Alt text reflects action if clicked
             break;
-        case 'error': // same as idle for now
-            iconFile = 'volume-2.png';
-            altText = 'Speak (error)';
+        case 'error':
+            iconFile = 'volume-2.png'; // Default icon, or a specific error icon
+            altText = 'Error, Speak';
             break;
         case 'idle':
         default:
-            iconFile = 'volume-2.png';
+            iconFile = 'volume-2.png'; // Default speak icon
             altText = 'Speak';
             break;
     }
-    button.innerHTML = `<img src="${chrome.runtime.getURL(iconFile)}" alt="${altText}">`;
+
+    const img = document.createElement('img');
+    img.src = chrome.runtime.getURL(iconFile);
+    img.alt = altText;
+    button.appendChild(img); // Append the new image
 }
 
 function addCustomButtonsToToolbar(actionsToolbar) {
@@ -490,5 +498,3 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 console.log('GitHub Copilot Chat Enhancer content script loaded and TTS logic updated.');
-
-

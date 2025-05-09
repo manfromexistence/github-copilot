@@ -252,5 +252,3 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 console.log('GitHub Copilot Chat Enhancer background script (v2 - offscreen) loaded.');
 console.warn('Reminder: The translate package (especially its use of "got" and other Node.js modules) may need adaptation (e.g., using "fetch") or bundling to work correctly in this service worker environment.');
-
-

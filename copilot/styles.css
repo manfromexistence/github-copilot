@@ -40,7 +40,7 @@
 /* Styles for the language selection menu */
 .copilot-language-menu {
     position: absolute;
-    background-color: var(--color-canvas-overlay, #2f363d); /* Dark background with fallback */
+    background-color: #000000; /* Hardcoded black background */
     border: 1px solid var(--color-border-default, #484f58);
     padding: 5px;
     z-index: 1000;
@@ -54,13 +54,13 @@
 .copilot-language-menu-option {
     padding: 8px 12px; /* More padding for better touch/click targets */
     cursor: pointer;
-    color: var(--color-fg-default, #adbac7); /* Light text with fallback */
+    color: #FFFFFF; /* Hardcoded white text */
     border-radius: 4px; /* Slight rounding for options */
 }
 
 .copilot-language-menu-option:hover {
-    background-color: var(--color-action-list-item-default-hover-bg, #40474f); /* Hover background with fallback */
-    color: var(--color-fg-default, #c9d1d9); /* Ensure text color remains readable on hover */
+    background-color: #1a1a1a; /* Slightly lighter black for hover */
+    color: #FFFFFF; /* Ensure text color remains white on hover */
 }
 
 
