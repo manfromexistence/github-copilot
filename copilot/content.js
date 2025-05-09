@@ -140,11 +140,10 @@ function addCustomButtonsToToolbar(actionsToolbar) {
         }
 
         // Find the messageTurnElement associated with this button/toolbar
-        // This is needed by showLanguageMenu to know which text to translate
-        const messageTurnElement = changeLangButton.closest('div[data-testid^="chat-message-content-turn-"]');
+        const messageTurnElement = changeLangButton.closest('.ChatMessage-module__ai--WrCO3'); // Updated selector
+
         if (!messageTurnElement) {
-            console.error("Copilot Enhancer: Could not find parent message turn element for language button.");
-            // Optionally, show an alert or disable the button functionality here
+            console.error("Copilot Enhancer: Could not find parent AI message container (.ChatMessage-module__ai--WrCO3) for language button. Button:", changeLangButton, "Toolbar:", actionsToolbar);
             alert("Copilot Enhancer: Could not identify the message to translate.");
             return;
         }
@@ -178,7 +177,15 @@ function addCustomButtonsToToolbar(actionsToolbar) {
     speakButton.onclick = () => {
         const thisButton = speakButton; // Closure for the current button
         let textToSpeak = '';
-        const messageTurnElement = actionsToolbar.closest('div[data-testid^="chat-message-content-turn-"]');
+        // Find the messageTurnElement associated with this button/toolbar
+        const messageTurnElement = thisButton.closest('.ChatMessage-module__ai--WrCO3'); // Updated selector
+
+        if (!messageTurnElement) {
+            console.error("Copilot Enhancer: Could not find parent AI message container (.ChatMessage-module__ai--WrCO3) for speak button. Button:", thisButton, "Toolbar:", actionsToolbar);
+            alert('Copilot Enhancer: Could not find message content for speak button.');
+            updateSpeakButtonIcon(thisButton, 'error'); // Reset button state if message not found
+            return;
+        }
 
         if (messageTurnElement) {
             const markdownBody = messageTurnElement.querySelector('.markdown-body');

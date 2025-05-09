@@ -10,7 +10,8 @@
     "128": "android-chrome-192x192.png"
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "permissions": [
     "storage",
@@ -20,7 +21,8 @@
   "host_permissions": [
     "https://unpkg.com/",
     "https://*.google.com/",
-    "https://friday-backend.vercel.app/"
+    "https://friday-backend.vercel.app/",
+    "https://manfromexistence-translate.vercel.app/"
   ],
   "content_scripts": [
     {
@@ -37,6 +39,7 @@
         "volume-2.png",
         "pause.png",
         "loader.png",
+        "play.png",
         "favicon-16x16.png",
         "favicon-32x32.png",
         "android-chrome-192x192.png",
