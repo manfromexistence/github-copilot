@@ -1,6 +1,6 @@
 const test = require('ava')
 const languages = require('./languages')
-const translate = require('./index')
+const translate = require('./translate')
 
 test('translate with string', async t => {
   try {

@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia';
-import translate from './index.js';
-import { isSupported, getCode } from './languages.js';
+import translate from './translate';
+import { isSupported, getCode } from './languages';
 
 const app = new Elysia()
   .post('/translate', async ({ body }) => {

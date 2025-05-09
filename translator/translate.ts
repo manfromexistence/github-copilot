@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import isUrl from 'is-url';
-import got from 'got';
+import got, { HTTPError, RequestError, OptionsOfJSONResponseBody } from 'got'; // Fixed import for Options type
 import UserAgents from 'user-agents';
 import * as token from './token';
 import * as languages from './languages';
@@ -102,29 +102,36 @@ function deMap(src: any, maps: MapItem[], dest: string): any {
 }
 
 export default async function translate(input: any, opts: TranslateOptions = {}, domain = 'translate.google.cn'): Promise<any> {
-  const langs: (string | undefined)[] = [opts.from, opts.to]
-  const except: string[] = opts.except || []
-  input = _.cloneDeep(input)
+  const langs: (string | undefined)[] = [opts.from, opts.to];
+  const except: string[] = opts.except || [];
+  input = _.cloneDeep(input);
   for (const lang of langs) {
     if (lang && !languages.isSupported(lang)) {
-      const e = new Error('The language \'' + lang + '\' is not supported')
-      e.code = 400
-      throw e
+      const e = new Error('The language \'' + lang + '\' is not supported') as Error & { code?: string }; // Fix type and make code string
+      e.code = '400'; // Changed to string '400'
+      throw e;
     }
   }
 
-  opts.from = languages.getCode(opts.from || 'auto')
-  opts.to = languages.getCode(opts.to || 'en')
+  opts.from = languages.getCode(opts.from || 'auto');
+  opts.to = languages.getCode(opts.to || 'en');
 
-  const strMap: MapItem[] = enMap(input, except)
-  const text = _.map(_.differenceBy(strMap, [{ s: true }], 's'), 'v').join("\n")
-  const tokenRet: TokenResult = await token.get(text, domain)
-  const url = `https://${domain}/translate_a/single`
+  const strMap: MapItem[] = enMap(input, except);
+  const text = _.map(_.differenceBy(strMap, [{ s: true }], 's'), 'v').join("\n");
+
+  if (text.trim() === '') {
+    // If the input text is empty or only whitespace, no translation is needed.
+    // Return the original input structure, with empty strings where text was.
+    return deMap(input, strMap, '');
+  }
+
+  const tokenRet: TokenResult = await token.get(text, domain);
+  const url = `https://${domain}/translate_a/single`;
   const searchParams = new URLSearchParams([
     ['client', 't'],
-    ['sl', opts.from],
-    ['tl', opts.to],
-    ['hl', opts.to],
+    ['sl', opts.from as string], // opts.from is string after languages.getCode
+    ['tl', opts.to as string],   // opts.to is string after languages.getCode
+    ['hl', opts.to as string],   // opts.to is string after languages.getCode
     ['dt', 'at'], ['dt', 'bd'], ['dt', 'ex'], ['dt', 'ld'], ['dt', 'md'], ['dt', 'qca'], ['dt', 'rw'], ['dt', 'rm'], ['dt', 'ss'], ['dt', 't'],
     ['ie', 'UTF-8'],
     ['oe', 'UTF-8'],
@@ -135,7 +142,10 @@ export default async function translate(input: any, opts: TranslateOptions = {},
     ['q', text],
     [tokenRet.name, tokenRet.value]
   ])
-  const opt: got.Options = { responseType: 'json', headers: {'User-Agent': new UserAgents({ deviceCategory: 'desktop' }).toString()} }
+  const opt: OptionsOfJSONResponseBody = { // Fix type here
+    responseType: 'json',
+    headers: { 'User-Agent': new UserAgents({ deviceCategory: 'desktop' }).toString() }
+  };
   if (searchParams.toString().length <= 1980) {
     opt.method = 'GET'
   } else {
@@ -145,20 +155,37 @@ export default async function translate(input: any, opts: TranslateOptions = {},
   }
   opt.searchParams = searchParams
   try {
-    const { body }: { body: any[][] } = await got(url, opt) // Assuming body[0] is an array
-    const retString = _.map(body[0], (item: any) => item[0]).join('') // Access the first element of inner arrays
-    return deMap(input, strMap, retString)
-  } catch (error: any) {
-    let e = new Error(error.message) as Error & { code?: string };
-    if (error.statusCode !== undefined && error.statusCode !== 200) {
-      e.code = 'BAD_REQUEST'
-    } else {
-      e.code = 'BAD_NETWORK'
+    const { body } = await got<any[][]>(url, opt); // Use generic type for got
+    const retString = _.map(body[0], (item: any) => item[0]).join('');
+    return deMap(input, strMap, retString);
+  } catch (thrownError: unknown) { // Refactored for type safety
+    let message = 'An error occurred during translation.';
+    let code = 'UNKNOWN_ERROR';
+
+    if (thrownError instanceof HTTPError) { // Use imported HTTPError
+      message = thrownError.message;
+      if (thrownError.response && thrownError.response.statusCode !== 200) {
+        code = 'BAD_REQUEST';
+      } else {
+        // This case (HTTPError with statusCode 200 or no response) is unusual.
+        code = 'BAD_NETWORK';
+      }
+    } else if (thrownError instanceof RequestError) { // Use imported RequestError
+      message = thrownError.message;
+      code = 'BAD_NETWORK';
+    } else if (thrownError instanceof Error) {
+      message = thrownError.message;
+      // Default to BAD_NETWORK for other errors, aligning with original logic's spirit.
+      code = 'BAD_NETWORK';
     }
-    throw e
+    // Non-Error throwables will use the default message and code initialized above.
+
+    const e: Error & { code?: string } = new Error(message);
+    e.code = code;
+    throw e;
   }
 }
 
-export { languages }
+export { languages };
 
 
